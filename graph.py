@@ -126,17 +126,22 @@ class Graph(object):
     def set_freq_edge(self, frm, to):
         self.vertices[frm].set_freq_edge(to)
         self.vertices[to].set_freq_edge(frm)
+        return self.vertices[frm].edges[to]
 
-    def get_freq_edges(self, frm):
+    def get_freq_edges(self, frms, excepts):
         result = set()
-        for to in self.vertices[frm].edges:
-            if self.vertices[frm].edges[to].is_freq:
-                if self.vertices[frm].vlb >= self.vertices[to].vlb:
-                    # result.add((self.vertices[frm].vlb, self.vertices[frm].edges[to].elb, self.vertices[to].vlb))
-                    result.add(self.vertices[frm].vlb+'$'+self.vertices[frm].edges[to].elb+'_'+self.vertices[to].vlb+'$#')
-                else:
-                    # result.add((self.vertices[to].vlb, self.vertices[frm].edges[to].elb, self.vertices[frm].vlb))
-                    result.add(self.vertices[to].vlb+'$'+self.vertices[frm].edges[to].elb+'_'+self.vertices[frm].vlb+'$#')
+        for frm in frms:
+            for to in self.vertices[frm].edges:
+                if to in excepts:
+                    continue
+
+                if self.vertices[frm].edges[to].is_freq:
+                    if self.vertices[frm].vlb >= self.vertices[to].vlb:
+                        # result.add((self.vertices[frm].vlb, self.vertices[frm].edges[to].elb, self.vertices[to].vlb))
+                        result.add(self.vertices[frm].vlb+'$'+self.vertices[frm].edges[to].elb+'_'+self.vertices[to].vlb+'$#')
+                    else:
+                        # result.add((self.vertices[to].vlb, self.vertices[frm].edges[to].elb, self.vertices[frm].vlb))
+                        result.add(self.vertices[to].vlb+'$'+self.vertices[frm].edges[to].elb+'_'+self.vertices[frm].vlb+'$#')
         return result
 
     def get_cannonical_tree(self):

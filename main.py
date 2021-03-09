@@ -1,15 +1,19 @@
 from algorithm import *
-from spin2 import *
+from spin3 import *
 from utils import *
 import time
 
-FILENAME = "8graphs_2pattern15nodes.lg"
-# FILENAME = "100graphs_10patterns.lg"
-THETA = 3
+FILENAME = "COX2_convert.txt"
+# FILENAME = "8graphs_2patterns.lg"
+THETA = 150
 MAX_NUM_VERTICE = float('inf')
+MAX_NGRAPHS = float('inf')
 
 if __name__ == '__main__':
-    spin = SPIN(FILENAME, min_support = THETA, max_num_vertices = MAX_NUM_VERTICE)
+    spin = SPIN(FILENAME,
+                    min_support = THETA,
+                    max_num_vertices = MAX_NUM_VERTICE,
+                    max_ngraphs = MAX_NGRAPHS)
     time_start = time.time()
     M = spin.mineMFG()
     time_end = time.time()

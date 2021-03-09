@@ -26,18 +26,20 @@ class S_structure():
         else:
             self.data = input_data
             for x in input_data:
-                self.list_encode.append(x.encode)
+                self.list_encode.append(x.getEncode())
 
     def add_graph(self, tree, freq):
+        # if tree.getEncode() not in self.list_encode:
         self.data.append(SG_container(tree, freq))
-        self.list_encode.append(self.data[-1].encode)
+        self.list_encode.append(self.data[-1].getEncode())
 
     def __iter__(self):
         return iter(self.data)
 
     def append(self, sg):
-        self.data.append(sg)
-        self.list_encode.append(self.data[-1].encode)
+        if sg.getEncode() not in self.list_encode:
+            self.data.append(sg)
+            self.list_encode.append(self.data[-1].getEncode())
 
     def get_length(self):
         return len(self.data)
@@ -46,14 +48,14 @@ class S_structure():
         return self.list_encode
 
     def get_sg(self, encode):
-        return list(filter(lambda x: x.encode == encode, self.data))
+        return list(filter(lambda x: x.getEncode() == encode, self.data))
 
 def sub_S_structure(here, other):
     result = S_structure()
     other_keys = other.get_list_encode()
 
     for x in here:
-        if x.encode not in other_keys:
+        if x.getEncode() not in other_keys:
             result.append(x)
 
     return result
@@ -64,10 +66,11 @@ class SG_container():
         self.freq = {k: list(v) for k, v in freq.items()}
         self.freq_by_node = {x:{k: v[x] for k, v in freq.items()} for x in self.tree.vertices}
         self.forFreqEdge = forFreqEdge
-        if forFreqEdge:
-            self.encode = self.tree.get_cannonical_tree()
-        else:
-            self.encode = self.build_encode()
+        self.encode = None
+        # if forFreqEdge:
+        #     self.encode = self.tree.get_cannonical_tree()
+        # else:
+        #     self.encode = self.build_encode()
 
     def get_freq_vertice(self, vid):
         return self.tree.vertices[vid].vlb, self.freq_by_node[vid]
@@ -77,6 +80,15 @@ class SG_container():
             return self.tree.set_of_vlb[vlb]
         else:
             return None
+
+    def getEncode(self):
+        if self.encode == None:
+            if self.forFreqEdge:
+                self.encode = self.tree.get_cannonical_tree()
+            else:
+                self.encode = self.build_encode()
+
+        return self.encode
 
     def add_edge_node(self, vid, elb, t_vlb, t_freq):
         new_vid = self.tree.get_num_vertices()
@@ -89,22 +101,16 @@ class SG_container():
             new_freq[gid] = self.freq[gid] + [t_freq[gid]]
 
         self.freq = new_freq
-        self.freq_by_node[new_vid] = {gid:t_freq[gid] for gid in intersect_graph}
+        self.freq_by_node = {x:{k: v[x] for k, v in self.freq.items()} for x in self.tree.vertices}
 
-        if self.forFreqEdge:
-            self.encode = self.tree.get_cannonical_tree()
-        else:
-            self.encode = self.build_encode()
+        self.encode = None
 
     def add_edge(self, vid1, elb, vid2, freq):
         self.tree.add_edge(AUTO_EDGE_ID, vid1, vid2, elb)
         self.freq = {k: v for k, v in self.freq.items() if k in freq}
         self.freq_by_node = {x:{k: v[x] for k, v in self.freq.items()} for x in self.tree.vertices}
 
-        if self.forFreqEdge:
-            self.encode = self.tree.get_cannonical_tree()
-        else:
-            self.encode = self.build_encode()
+        self.encode = None
 
     def check_vertice(self, lb, freq, min_sup=None):
         vid_found = None
@@ -115,6 +121,7 @@ class SG_container():
                 continue
 
             new_freq = dict(self.freq_by_node[vid].items() & freq.items())
+            # print(new_freq)
             if len(new_freq) >= min_sup:
                 vid_found = vid
                 freq_found = new_freq
@@ -183,6 +190,8 @@ class SPIN():
             self._max_num_vertices = self._min_num_vertices
 
         self._read_graphs()
+        print("Successfully read graph dataset!")
+
         self._build_1edge_tree()
 
     def _read_graphs(self):
@@ -197,7 +206,7 @@ class SPIN():
                         self.graphs[graph_cnt] = tgraph
                         graph_cnt += 1
                         tgraph = None
-                    if cols[-1] == '-1' or graph_cnt >= self._max_ngraphs:
+                    if cols[-1] == '-1':
                         break
                     tgraph = Graph(graph_cnt,
                                    is_undirected=self._is_undirected,
@@ -209,6 +218,14 @@ class SPIN():
             # adapt to input files that do not end with 't # -1'
             if tgraph is not None:
                 self.graphs[graph_cnt] = tgraph
+
+        if len(self.graphs) > self._max_ngraphs:
+            list_id = np.random.choice(list(self.graphs.keys()), self._max_ngraphs, replace=False)
+            list_key = list(self.graphs.keys())
+            for id in list_key:
+                if id not in list_id:
+                    del self.graphs[id]
+
         return self
 
     def _report_size1(self, g, support):
@@ -297,7 +314,7 @@ class SPIN():
             freq_edge_set = set()
 
             for gid, _vid in v_freq.items():
-                freq_edge_set = freq_edge_set | self.graphs[gid].get_freq_edges(_vid)
+                freq_edge_set = freq_edge_set | self.graphs[gid].get_freq_edges(_vid, lc_graph.freq[gid]) #TODO: Loai bo nhung nut da xet qua
 
             # print("Freq Edge Set: ", freq_edge_set)
             for edge_enc in freq_edge_set:
@@ -317,7 +334,7 @@ class SPIN():
                             elb_target = edge.tree.vertices[vid_in_edge].edges[vid_target_in_edge].elb
                             new_tree.add_edge_node(vid, elb_target, vlb_target, inter_freq)
                             # print(new_tree.encode)
-                            if new_tree.encode > lc_graph.encode:
+                            if new_tree.getEncode() > lc_graph.getEncode():
                                 result.append(new_tree)
 
         return result
@@ -366,7 +383,7 @@ class SPIN():
     def _generic_tree_explorer(self, C, R):
         Q = S_structure()
 
-        if self._loop_count % 100 == 0:
+        if self._loop_count % 5 == 0:
             print("Loop count: %d" % self._loop_count)
         self._loop_count += 1
 
@@ -395,21 +412,23 @@ class SPIN():
             if S.get_length() == 0:
                 continue
 
+            # print(S.data[0].tree.get_cannonical_tree())
+
             U, V = self._generic_tree_explorer(S, R)
             for x in U:
                 Q.append(x)
 
             R.append(X)
-            # for x in V:
-            #     R.append(x)
+            for x in V:
+                R.append(x)
 
         return Q, R
 
     def mineMFG(self):
         C = S_structure(input_data=self._frequent_size1_subgraphs)
         print("Number of Frequent Edges: ", len(C.data))
-        for x in C:
-            print(x.tree.get_cannonical_tree(), x.freq)
+        # for x in C:
+        #     print(x.tree.get_cannonical_tree(), x.freq)
 
         R = S_structure()
 
