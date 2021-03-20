@@ -16,7 +16,6 @@ import time
 
 from graph import Graph
 from graph import AUTO_EDGE_ID
-from graph import Graph
 from graph import VACANT_GRAPH_ID
 from graph import VACANT_VERTEX_LABEL
 
@@ -27,7 +26,6 @@ def record_timestamp(func):
         func(self)
         self.timestamps[func.__name__ + '_out'] = time.time()
     return deco
-
 
 class DFSedge(object):
     """DFSedge class."""
@@ -131,7 +129,6 @@ class DFScode(list):
             [dfsedge.to for dfsedge in self]
         ))
 
-
 class PDFS(object):
     """PDFS class."""
 
@@ -161,35 +158,51 @@ class Projected(list):
         self.append(PDFS(gid, edge, prev))
         return self
 
-
 class History(object):
     """History class."""
 
-    def __init__(self, pdfs):
+    def __init__(self, pdfs, dfs_code=False):
         """Initialize History instance."""
         super(History, self).__init__()
         self.edges = list()
-        self.vertices_used = collections.defaultdict(int)
-        self.edges_used = collections.defaultdict(int)
+        self.vertices_used = collections.defaultdict(lambda:-1)
+        self.edges_used = collections.defaultdict(lambda:-1)
         if pdfs is None:
             return
-        while pdfs:
-            e = pdfs.edge
-            self.edges.append(e)
-            (self.vertices_used[e.frm],
-             self.vertices_used[e.to],
-             self.edges_used[e.eid]) = 1, 1, 1
 
-            pdfs = pdfs.prev
+        if not dfs_code:
+            while pdfs:
+                e = pdfs.edge
+                self.edges.append(e)
+                (self.vertices_used[e.frm],
+                 self.vertices_used[e.to],
+                 self.edges_used[e.eid]) = 1, 1, 1
+
+                pdfs = pdfs.prev
+        else:
+            dfs_i = -1
+            while pdfs:
+                e = pdfs.edge
+                self.edges.append(e)
+                self.vertices_used[e.frm] = dfs_code[dfs_i].frm
+                self.vertices_used[e.to] = dfs_code[dfs_i].to
+                self.edges_used[e.eid] = 1
+
+                dfs_i -= 1
+                pdfs = pdfs.prev
+
         self.edges = self.edges[::-1]
 
     def has_vertex(self, vid):
         """Check if the vertex with vid exists in the history."""
-        return self.vertices_used[vid] == 1
+        return self.vertices_used[vid] != -1
 
     def has_edge(self, eid):
         """Check if the edge with eid exists in the history."""
-        return self.edges_used[eid] == 1
+        return self.edges_used[eid] != -1
+
+    def get_vertex_mapping(self, vid):
+        return self.vertices_used[vid]
 
 class SPIN(object):
     """`SPIN` algorithm."""
@@ -197,7 +210,7 @@ class SPIN(object):
     def __init__(self,
                  database_file_name,
                  min_support=10,
-                 min_num_vertices=1,
+                 min_num_vertices=2,
                  max_num_vertices=float('inf'),
                  max_ngraphs=float('inf'),
                  is_undirected=True,
@@ -230,22 +243,20 @@ class SPIN(object):
                   'Set max_num_vertices = min_num_vertices.')
             self._max_num_vertices = self._min_num_vertices
         self._report_df = pd.DataFrame()
-        self._read_graphs()
 
     def time_stats(self):
         """Print stats of time."""
-        func_names = ['_read_graphs', 'run']
+        func_names = ['_read_graphs', 'mineMFG']
         time_deltas = collections.defaultdict(float)
         for fn in func_names:
             time_deltas[fn] = round(
                 self.timestamps[fn + '_out'] - self.timestamps[fn + '_in'],
-                2
+                5
             )
-
+            
         print('Read:\t{} s'.format(time_deltas['_read_graphs']))
-        print('Mine:\t{} s'.format(
-            time_deltas['run'] - time_deltas['_read_graphs']))
-        print('Total:\t{} s'.format(time_deltas['run']))
+        print('Mine:\t{} s'.format((time_deltas['mineMFG'] - time_deltas['_read_graphs'])))
+        print('Total:\t{} s'.format(time_deltas['mineMFG']))
 
         return self
 
@@ -379,8 +390,8 @@ class SPIN(object):
         return result
 
     def _expand_1node_start(self, projected):
-        self._support = self._get_support(projected)
-        self._report(projected)
+        # self._support = self._get_support(projected)
+        # self._report(projected)
 
         num_vertices = self._DFScode.get_num_vertices()
         maxtoc = self._DFScode[-1].to
@@ -420,8 +431,8 @@ class SPIN(object):
         return result
 
     def _expand_1node(self, projected, prev_cand_edge=None):
-        self._support = self._get_support(projected)
-        self._report(projected)
+        # self._support = self._get_support(projected)
+        # self._report(projected)
 
         num_vertices = self._DFScode.get_num_vertices()
         maxtoc = self._DFScode[-1].to
@@ -515,6 +526,7 @@ class SPIN(object):
             )
 
             cannonical = self._get_all_embedding(pre_S[(frm, elb, vlb2)])
+            # print(cannonical)
             for r in R:
                 intersect = cannonical & r
                 if len(intersect) > 0:
@@ -533,7 +545,7 @@ class SPIN(object):
 
     def _generic_tree_explorer(self, C, R, prev_proj=[]):
         if self._loop_count % 100 == 0:
-            print("Loop count: %d" % self._loop_count)
+            print("Loop count: %d\n" % self._loop_count)
         self._loop_count += 1
 
         maxtoc = self._DFScode[-1].to
@@ -562,13 +574,17 @@ class SPIN(object):
 
             pre_S = self._expand_1node(projected, prev_cand_edge)
 
-            S = self._remove_duplicate(pre_S, R)
-            _, V = self._generic_tree_explorer(S, R, prev_proj=projected)
+            S = self._remove_duplicate(copy.deepcopy(pre_S), R)
+            if (len(S) == len(pre_S)):
+                _, V = self._generic_tree_explorer(S, R, prev_proj=projected)
+            else:
+                V = []
 
             R = list(set(R + [self._get_all_embedding(projected)] + V))
 
             if len(pre_S) == 0:
-                self._maximal_expand()
+                if not self._check_external_assoc_edge(projected):
+                    self._maximal_expand(projected)
 
             self._DFScode.pop()
 
@@ -585,20 +601,148 @@ class SPIN(object):
             _, V = self._generic_tree_explorer(S, R)
 
             R = list(set(R + [self._get_all_embedding(projected)] + V))
-            if len(S) == 0:
-                self._maximal_expand()
+            if len(pre_S) == 0:
+                if not self._check_external_assoc_edge(projected):
+                    self._maximal_expand(projected)
 
             self._DFScode.pop()
 
         return None, R
 
-    def _maximal_expand(self):
-        # print("============== EXPAND =============")
-        pass
+    def _get_external_associative_edges(self, g, rm_edge, history):
+        result = []
+        for to, e in g.vertices[rm_edge.to].edges.items():
+            if e.is_freq and (not history.has_vertex(e.to)):
+                result.append(e)
+        return result
+
+    def _check_external_assoc_edge(self, projected):
+        external_assoc_edges = collections.defaultdict(Projected)
+        maxtoc = self._DFScode[-1].to
+
+        for p in projected:
+            g = self.graphs[p.gid]
+            history = History(p)
+            current_vid = maxtoc - 1
+
+            while True:
+                edges = self._get_external_associative_edges(g, p.edge, history)
+                for e in edges:
+                    external_assoc_edges[
+                        (current_vid, e.elb, g.vertices[e.to].vlb)
+                    ].append(PDFS(g.gid, e, None))
+
+                current_vid -= 1
+                if p.prev:
+                    p = p.prev
+                else:
+                    for to, e in g.vertices[p.edge.frm].edges.items():
+                        if e.is_freq and (not history.has_vertex(e.to)):
+                            external_assoc_edges[
+                                (current_vid, e.elb, g.vertices[e.to].vlb)
+                            ].append(PDFS(g.gid, e, None))
+                    break
+
+        for e in external_assoc_edges:
+            if self._get_support(external_assoc_edges[e]) >= self._min_support:
+                return True
+
+        return False
+
+    def _get_internal_associative_edges(self, g, rm_edge, history):
+        result = []
+        for to, e in g.vertices[rm_edge.to].edges.items():
+            if e.is_freq and (not history.has_edge(e.eid)) and history.has_vertex(e.to):
+                result.append(e)
+        return result
+
+    def _maximal_expand(self, projected):
+        candidate_edges = collections.defaultdict(Projected)
+        for p in projected:
+            g = self.graphs[p.gid]
+            history = History(p, dfs_code=self._DFScode)
+
+            while True:
+                edges = self._get_internal_associative_edges(g, p.edge, history)
+                for e in edges:
+                    candidate_edges[
+                        (history.get_vertex_mapping(e.frm), e.elb, history.get_vertex_mapping(e.to))
+                    ].append(PDFS(g.gid, e, p))
+
+                if p.prev:
+                    p = p.prev
+                else:
+                    for to, e in g.vertices[p.edge.frm].edges.items():
+                        if e.is_freq and (not history.has_vertex(e.to)):
+                            candidate_edges[
+                                (history.get_vertex_mapping(e.frm), e.elb, history.get_vertex_mapping(e.to))
+                            ].append(PDFS(g.gid, e, p))
+                    break
+
+        unfreq_edge = []
+        for e in candidate_edges:
+            if self._get_support(candidate_edges[e]) < self._min_support:
+                unfreq_edge.append(e)
+
+        for e in unfreq_edge:
+            del candidate_edges[e]
+
+        self._search_graph(candidate_edges)
+
+    def _search_graph(self, candidate_edges):
+        # Try 2 add all edges
+        join_embed = set([x for x in range(len(self.graphs))])
+        join_embed = list(reduce(lambda x, p: x & set([pdfs.gid for pdfs in p[1]]), candidate_edges.items(), join_embed))
+
+        # Bottom-up pruning
+        if len(join_embed) >= self._min_support:
+            for e in candidate_edges:
+                self._DFScode.push_back(
+                    e[0], e[2],
+                    (VACANT_VERTEX_LABEL, e[1], VACANT_VERTEX_LABEL)
+                )
+
+            temp_projected = []
+            for embed in join_embed:
+                temp_projected.append(PDFS(embed))
+
+            self._support = len(join_embed)
+            self._report(temp_projected)
+
+            for _ in candidate_edges:
+                self._DFScode.pop()
+
+            return
+
+        for e in candidate_edges:
+            self._DFScode.push_back(
+                e[0], e[2],
+                (VACANT_VERTEX_LABEL, e[1], VACANT_VERTEX_LABEL)
+            )
+
+            new_candidate_edges = copy.deepcopy(candidate_edges)
+            del new_candidate_edges[e]
+
+            # Update embeding
+            current_embeding = [x.gid for x in candidate_edges[e]]
+            unfreq_edge = []
+            for nce in new_candidate_edges:
+                filtered_embedding = list(filter(lambda x: x.gid in current_embeding, new_candidate_edges[nce]))
+                if self._get_support(filtered_embedding) >= self._min_support:
+                    new_candidate_edges[nce] = filtered_embedding
+                else:
+                    unfreq_edge.append(nce)
+
+            for nce in unfreq_edge:
+                del new_candidate_edges[nce]
+
+            self._search_graph(new_candidate_edges)
+            self._DFScode.pop()
 
     @record_timestamp
     def mineMFG(self):
+        self._read_graphs()
         C = self._generate_1edge_frequent_subgraphs()
         R = []
         M, S = self._generic_tree_explorer_start(C, R)
-        return M
+        # return self._frequent_subgraphs
