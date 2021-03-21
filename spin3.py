@@ -253,7 +253,7 @@ class SPIN(object):
                 self.timestamps[fn + '_out'] - self.timestamps[fn + '_in'],
                 5
             )
-            
+
         print('Read:\t{} s'.format(time_deltas['_read_graphs']))
         print('Mine:\t{} s'.format((time_deltas['mineMFG'] - time_deltas['_read_graphs'])))
         print('Total:\t{} s'.format(time_deltas['mineMFG']))
@@ -377,17 +377,13 @@ class SPIN(object):
             print('where: {}'.format(list(set([p.gid for p in projected]))))
         print('\n-----------------\n')
 
-    def _get_forward_pure_edges_start(self, g, rm_edge, history):
-        result = []
-        for to, e in g.vertices[rm_edge.frm].edges.items():
-            if e.is_freq and (not history.has_vertex(e.to)):
-                result.append(e)
-
-        for to, e in g.vertices[rm_edge.to].edges.items():
-            if e.is_freq and (not history.has_vertex(e.to)):
-                result.append(e)
-
-        return result
+    # def _get_forward_pure_edges_start(self, g, rm_edge, history):
+    #     result = []
+    #     for to, e in g.vertices[rm_edge.frm].edges.items():
+    #         if e.is_freq and (not history.has_vertex(e.to)):
+    #             result.append(e)
+    #
+    #     return result
 
     def _expand_1node_start(self, projected):
         # self._support = self._get_support(projected)
@@ -404,7 +400,24 @@ class SPIN(object):
             if num_vertices >= self._max_num_vertices:
                 continue
 
-            edges = self._get_forward_pure_edges_start(g,
+            edges = self._get_forward_pure_edges(g,
+                                                 p.edge,
+                                                 history)
+            for e in edges:
+                forward_root[
+                    (maxtoc, e.elb, g.vertices[e.to].vlb)
+                ].append(PDFS(g.gid, e, p))
+
+        maxtoc -= 1
+        for p in projected:
+            g = self.graphs[p.gid]
+            history = History(p)
+
+            if num_vertices >= self._max_num_vertices:
+                continue
+
+            p.edge.frm, p.edge.to = p.edge.to, p.edge.frm
+            edges = self._get_forward_pure_edges(g,
                                                  p.edge,
                                                  history)
             for e in edges:
@@ -623,7 +636,7 @@ class SPIN(object):
         for p in projected:
             g = self.graphs[p.gid]
             history = History(p)
-            current_vid = maxtoc - 1
+            current_vid = maxtoc
 
             while True:
                 edges = self._get_external_associative_edges(g, p.edge, history)
@@ -652,7 +665,7 @@ class SPIN(object):
     def _get_internal_associative_edges(self, g, rm_edge, history):
         result = []
         for to, e in g.vertices[rm_edge.to].edges.items():
-            if e.is_freq and (not history.has_edge(e.eid)) and history.has_vertex(e.to):
+            if e.is_freq and (not history.has_edge(e.eid)) and history.has_vertex(e.to) and history.has_vertex(e.frm):
                 result.append(e)
         return result
 
