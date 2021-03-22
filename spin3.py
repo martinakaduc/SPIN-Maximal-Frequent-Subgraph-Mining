@@ -556,7 +556,7 @@ class SPIN(object):
     def _get_all_embedding(self, pdfs):
         return frozenset(map(lambda p: (p.gid, self._DFScode.represent(self.graphs[p.gid], p)), pdfs))
 
-    def _generic_tree_explorer(self, C, R, prev_proj=[]):
+    def _generic_tree_explorer(self, C, R):
         if self._loop_count % 100 == 0:
             print("Loop count: %d\n" % self._loop_count)
         self._loop_count += 1
@@ -569,18 +569,14 @@ class SPIN(object):
                 (VACANT_VERTEX_LABEL, fevlb[1], fevlb[2])
             )
 
-            # if prev_proj:
-            #     bck_prev_proj = copy.deepcopy(prev_proj)
-            #     for i, proj in enumerate(projected):
-            #         tobe_change = None
-            #         for k, pre_p in enumerate(bck_prev_proj):
-            #             if proj.gid == pre_p.gid:
-            #                 projected[i].prev = pre_p
-            #                 tobe_change = k
-            #                 break
-            #
-            #         if tobe_change != None:
-            #             del bck_prev_proj[tobe_change]
+            # p = copy.deepcopy(projected[0])
+            # k = 1
+            # while p.prev:
+            #     p = p.prev
+            #     k += 1
+            # print("========")
+            # print(k)
+            # print(len(self._DFScode))
 
             prev_cand_edge = copy.deepcopy(C)
             del prev_cand_edge[fevlb]
@@ -589,7 +585,7 @@ class SPIN(object):
 
             S = self._remove_duplicate(copy.deepcopy(pre_S), R)
             if (len(S) == len(pre_S)):
-                _, V = self._generic_tree_explorer(S, R, prev_proj=projected)
+                _, V = self._generic_tree_explorer(S, R)
             else:
                 V = []
 
@@ -686,7 +682,7 @@ class SPIN(object):
                     p = p.prev
                 else:
                     for to, e in g.vertices[p.edge.frm].edges.items():
-                        if e.is_freq and (not history.has_vertex(e.to)):
+                        if e.is_freq and (not history.has_vertex(e.to)) and history.has_vertex(e.to) and history.has_vertex(e.frm):
                             candidate_edges[
                                 (history.get_vertex_mapping(e.frm), e.elb, history.get_vertex_mapping(e.to))
                             ].append(PDFS(g.gid, e, p))

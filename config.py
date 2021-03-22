@@ -10,7 +10,6 @@ def str2bool(s):
     """Convert str to bool."""
     return s.lower() not in ['false', 'f', '0', 'none', 'no', 'n']
 
-
 parser = argparse.ArgumentParser()
 parser.add_argument(
     '-s', '--min_support',
