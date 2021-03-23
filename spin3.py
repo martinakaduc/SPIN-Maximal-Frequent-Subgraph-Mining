@@ -669,11 +669,11 @@ class SPIN(object):
         for e in unfreq_edge:
             del candidate_edges[e]
 
-        self._search_graph(candidate_edges)
+        self._search_graph(candidate_edges, [p.gid for p in projected])
 
-    def _search_graph(self, candidate_edges):
+    def _search_graph(self, candidate_edges, prev_embedding):
         # Try 2 add all edges
-        join_embed = set([x for x in range(len(self.graphs))])
+        join_embed = set(prev_embedding)
         join_embed = list(reduce(lambda x, p: x & set([pdfs.gid for pdfs in p[1]]), candidate_edges.items(), join_embed))
 
         # Bottom-up pruning
@@ -718,7 +718,7 @@ class SPIN(object):
             for nce in unfreq_edge:
                 del new_candidate_edges[nce]
 
-            self._search_graph(new_candidate_edges)
+            self._search_graph(new_candidate_edges, current_embeding)
             self._DFScode.pop()
 
     @record_timestamp
