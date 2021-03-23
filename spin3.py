@@ -86,10 +86,8 @@ class DFScode(list):
 
     def represent(self, graph, projected):
         history = History(projected)
-        #TODO: represent sg as an embeding
         list_vid = list(history.vertices_used.keys())
-        list_vlb = [graph.vertices[x].vlb for x in list_vid]
-        sorted_vid = tuple(map(lambda y: y[0], sorted(zip(list_vid, list_vlb), key=lambda x: x[1])))
+        sorted_vid = tuple(sorted(list_vid))
         return sorted_vid
 
     def push_back(self, frm, to, vevlb):
@@ -562,10 +560,11 @@ class SPIN(object):
             else:
                 V = []
 
-            R = list(set(R + [self._get_all_embedding(projected)] + V))
-
             if len(pre_S) == 0 and not self._check_external_assoc_edge(projected):
-                self._maximal_expand(projected)
+                if not self._get_all_embedding(projected) in R:
+                    self._maximal_expand(projected)
+
+            R = list(set(R + [self._get_all_embedding(projected)] + V))
 
             self._DFScode.pop()
 
@@ -581,10 +580,11 @@ class SPIN(object):
             S = self._remove_duplicate(pre_S, R)
             _, V = self._generic_tree_explorer(S, R)
 
-            R = list(set(R + [self._get_all_embedding(projected)] + V))
-
             if len(pre_S) == 0 and not self._check_external_assoc_edge(projected):
-                self._maximal_expand(projected)
+                if not self._get_all_embedding(projected) in R:
+                    self._maximal_expand(projected)
+
+            R = list(set(R + [self._get_all_embedding(projected)] + V))
 
             self._DFScode.pop()
 
@@ -623,7 +623,7 @@ class SPIN(object):
                                 (current_vid, e.elb, g.vertices[e.to].vlb)
                             ].append(PDFS(g.gid, e, None))
                     break
-                    
+
         for e in external_assoc_edges:
             if self._get_support(external_assoc_edges[e]) >= self._min_support:
                 return True
