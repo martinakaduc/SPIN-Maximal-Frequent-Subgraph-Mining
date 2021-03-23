@@ -2,14 +2,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import codecs
 import collections
 import copy
 import itertools
 
 import numpy as np
 import pandas as pd
-from typing import List
 from functools import reduce
 from algorithm import encodeGraph
 import time
@@ -167,6 +165,8 @@ class History(object):
         self.edges = list()
         self.vertices_used = collections.defaultdict(lambda:-1)
         self.edges_used = collections.defaultdict(lambda:-1)
+        self.pdfs = pdfs
+
         if pdfs is None:
             return
 
@@ -249,21 +249,18 @@ class SPIN(object):
         func_names = ['_read_graphs', 'mineMFG']
         time_deltas = collections.defaultdict(float)
         for fn in func_names:
-            time_deltas[fn] = round(
-                self.timestamps[fn + '_out'] - self.timestamps[fn + '_in'],
-                5
-            )
+            time_deltas[fn] = self.timestamps[fn + '_out'] - self.timestamps[fn + '_in']
 
-        print('Read:\t{} s'.format(time_deltas['_read_graphs']))
-        print('Mine:\t{} s'.format((time_deltas['mineMFG'] - time_deltas['_read_graphs'])))
-        print('Total:\t{} s'.format(time_deltas['mineMFG']))
+        print("Read:\t%.5f s" % time_deltas['_read_graphs'])
+        print("Mine:\t%.5f s" % (time_deltas['mineMFG'] - time_deltas['_read_graphs']))
+        print("Total:\t%.5f s" % time_deltas['mineMFG'])
 
         return self
 
     @record_timestamp
     def _read_graphs(self):
         self.graphs = dict()
-        with codecs.open(self._database_file_name, 'r', 'utf-8') as f:
+        with open(self._database_file_name, 'r', encoding='utf-8') as f:
             lines = [line.strip() for line in f.readlines()]
             tgraph, graph_cnt = None, 0
             for i, line in enumerate(lines):
@@ -316,7 +313,6 @@ class SPIN(object):
                     if (vid1, vid2) not in vevlb_dict[(vlb1, e.elb, vlb2)][g.gid] and (vid2, vid1) not in vevlb_dict[(vlb1, e.elb, vlb2)][g.gid]:
                         vevlb_dict[(vlb1, e.elb, vlb2)][g.gid].append((vid1, vid2))
 
-        # print(vevlb_counter)
         # add frequent vertices.
         for vevlb, cnt in vevlb_counter.items():
             if cnt >= self._min_support:
@@ -376,14 +372,6 @@ class SPIN(object):
         if self._where:
             print('where: {}'.format(list(set([p.gid for p in projected]))))
         print('\n-----------------\n')
-
-    # def _get_forward_pure_edges_start(self, g, rm_edge, history):
-    #     result = []
-    #     for to, e in g.vertices[rm_edge.frm].edges.items():
-    #         if e.is_freq and (not history.has_vertex(e.to)):
-    #             result.append(e)
-    #
-    #     return result
 
     def _expand_1node_start(self, projected):
         # self._support = self._get_support(projected)
@@ -478,6 +466,10 @@ class SPIN(object):
         if prev_cand_edge != None:
             unfreq_edge = []
             list_projected_gid = [x.gid for x in projected]
+            list_history = collections.defaultdict(list)
+
+            for proj in projected:
+                list_history[proj.gid].append(History(proj))
 
             for frm, elb, vlb2 in prev_cand_edge:
                 new_embedding = list(filter(lambda x: x.gid in list_projected_gid, prev_cand_edge[(frm, elb, vlb2)]))
@@ -490,10 +482,13 @@ class SPIN(object):
                     duplicate_pdfs = []
                     duplicate_pdfs_idx = []
                     for i, pdfs in enumerate(new_embedding):
-                        for proj in projected:
-                            if pdfs.check_duplicate(proj):
-                                duplicate_pdfs.append(pdfs)
-                                duplicate_pdfs_idx.append(i)
+                        for history in list_history[pdfs.gid]:
+                            if history.has_vertex(pdfs.edge.frm):
+                                if history.has_vertex(pdfs.edge.to):
+                                    duplicate_pdfs.append(pdfs)
+                                    duplicate_pdfs_idx.append(i)
+                                else:
+                                    new_embedding[i].prev = history.pdfs
                                 break
 
                     if support - self._get_support(duplicate_pdfs) < self._min_support:
@@ -502,18 +497,6 @@ class SPIN(object):
                     else:
                         for idx in sorted(duplicate_pdfs_idx, reverse=True):
                             del new_embedding[idx]
-
-                copy_projected = copy.deepcopy(projected)
-                for i, proj in enumerate(new_embedding):
-                    tobe_change = None
-                    for k, pre_p in enumerate(copy_projected):
-                        if proj.gid == pre_p.gid:
-                            new_embedding[i].prev = pre_p
-                            tobe_change = k
-                            break
-
-                    if tobe_change != None:
-                        del copy_projected[tobe_change]
 
                 prev_cand_edge[(frm, elb, vlb2)] = new_embedding
 
@@ -539,7 +522,6 @@ class SPIN(object):
             )
 
             cannonical = self._get_all_embedding(pre_S[(frm, elb, vlb2)])
-            # print(cannonical)
             for r in R:
                 intersect = cannonical & r
                 if len(intersect) > 0:
@@ -568,15 +550,6 @@ class SPIN(object):
                 fevlb[0], maxtoc + 1,
                 (VACANT_VERTEX_LABEL, fevlb[1], fevlb[2])
             )
-
-            # p = copy.deepcopy(projected[0])
-            # k = 1
-            # while p.prev:
-            #     p = p.prev
-            #     k += 1
-            # print("========")
-            # print(k)
-            # print(len(self._DFScode))
 
             prev_cand_edge = copy.deepcopy(C)
             del prev_cand_edge[fevlb]
