@@ -310,7 +310,7 @@ class SPIN(object):
                     if g.gid not in vevlb_dict[(vlb1, e.elb, vlb2)]:
                         vevlb_dict[(vlb1, e.elb, vlb2)][g.gid] = []
 
-                    if (vid1, vid2) not in vevlb_dict[(vlb1, e.elb, vlb2)][g.gid] and (vid2, vid1) not in vevlb_dict[(vlb1, e.elb, vlb2)][g.gid]:
+                    if (vid1, vid2) not in vevlb_dict[(vlb1, e.elb, vlb2)][g.gid]:
                         vevlb_dict[(vlb1, e.elb, vlb2)][g.gid].append((vid1, vid2))
 
         # add frequent vertices.
@@ -397,7 +397,7 @@ class SPIN(object):
                 ].append(PDFS(g.gid, e, p))
 
         maxtoc -= 1
-        for p in projected:
+        for p in copy.deepcopy(projected):
             g = self.graphs[p.gid]
             history = History(p)
 
@@ -524,7 +524,7 @@ class SPIN(object):
             cannonical = self._get_all_embedding(pre_S[(frm, elb, vlb2)])
             for r in R:
                 intersect = cannonical & r
-                if len(intersect) > 0:
+                if len(intersect) >= self._min_support:
                     duplicate.append((frm, elb, vlb2))
                     break
 
@@ -564,9 +564,8 @@ class SPIN(object):
 
             R = list(set(R + [self._get_all_embedding(projected)] + V))
 
-            if len(pre_S) == 0:
-                if not self._check_external_assoc_edge(projected):
-                    self._maximal_expand(projected)
+            if len(pre_S) == 0 and not self._check_external_assoc_edge(projected):
+                self._maximal_expand(projected)
 
             self._DFScode.pop()
 
@@ -583,9 +582,9 @@ class SPIN(object):
             _, V = self._generic_tree_explorer(S, R)
 
             R = list(set(R + [self._get_all_embedding(projected)] + V))
-            if len(pre_S) == 0:
-                if not self._check_external_assoc_edge(projected):
-                    self._maximal_expand(projected)
+
+            if len(pre_S) == 0 and not self._check_external_assoc_edge(projected):
+                self._maximal_expand(projected)
 
             self._DFScode.pop()
 
@@ -624,7 +623,7 @@ class SPIN(object):
                                 (current_vid, e.elb, g.vertices[e.to].vlb)
                             ].append(PDFS(g.gid, e, None))
                     break
-
+                    
         for e in external_assoc_edges:
             if self._get_support(external_assoc_edges[e]) >= self._min_support:
                 return True
@@ -634,7 +633,7 @@ class SPIN(object):
     def _get_internal_associative_edges(self, g, rm_edge, history):
         result = []
         for to, e in g.vertices[rm_edge.to].edges.items():
-            if e.is_freq and (not history.has_edge(e.eid)) and history.has_vertex(e.to) and history.has_vertex(e.frm):
+            if e.is_freq and (not history.has_edge(e.eid)) and history.has_vertex(e.to):
                 result.append(e)
         return result
 
@@ -655,7 +654,7 @@ class SPIN(object):
                     p = p.prev
                 else:
                     for to, e in g.vertices[p.edge.frm].edges.items():
-                        if e.is_freq and (not history.has_vertex(e.to)) and history.has_vertex(e.to) and history.has_vertex(e.frm):
+                        if e.is_freq and (not history.has_edge(e.eid)) and history.has_vertex(e.to):
                             candidate_edges[
                                 (history.get_vertex_mapping(e.frm), e.elb, history.get_vertex_mapping(e.to))
                             ].append(PDFS(g.gid, e, p))
