@@ -520,8 +520,11 @@ class SPIN(object):
             )
 
             cannonical = self._get_all_embedding(pre_S[(frm, elb, vlb2)])
-            if cannonical in R:
-                duplicate.append((frm, elb, vlb2))
+            for r in R:
+                intersect = cannonical & r
+                if len(intersect) >= self._min_support:
+                    duplicate.append((frm, elb, vlb2))
+                    break
 
             self._DFScode.pop()
 
@@ -557,11 +560,13 @@ class SPIN(object):
             else:
                 V = []
 
+            cannonical = self._get_all_embedding(projected)
+
             if len(pre_S) == 0 and not self._check_external_assoc_edge(projected):
-                if not self._get_all_embedding(projected) in R:
+                if not cannonical in R:
                     self._maximal_expand(projected)
 
-            R = list(set(R + [self._get_all_embedding(projected)] + V))
+            R = list(set(R + [cannonical] + V))
 
             self._DFScode.pop()
 
@@ -580,11 +585,13 @@ class SPIN(object):
             else:
                 V = []
 
+            cannonical = self._get_all_embedding(projected)
+
             if len(pre_S) == 0 and not self._check_external_assoc_edge(projected):
-                if not self._get_all_embedding(projected) in R:
+                if not cannonical in R:
                     self._maximal_expand(projected)
 
-            R = list(set(R + [self._get_all_embedding(projected)] + V))
+            R = list(set(R + [cannonical] + V))
 
             self._DFScode.pop()
 
