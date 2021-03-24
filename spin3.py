@@ -520,11 +520,8 @@ class SPIN(object):
             )
 
             cannonical = self._get_all_embedding(pre_S[(frm, elb, vlb2)])
-            for r in R:
-                intersect = cannonical & r
-                if len(intersect) >= self._min_support:
-                    duplicate.append((frm, elb, vlb2))
-                    break
+            if cannonical in R:
+                duplicate.append((frm, elb, vlb2))
 
             self._DFScode.pop()
 
@@ -577,8 +574,11 @@ class SPIN(object):
             self._DFScode.push_back(0, 1, vevlb)
             pre_S = self._expand_1node_start(projected)
 
-            S = self._remove_duplicate(pre_S, R)
-            _, V = self._generic_tree_explorer(S, R)
+            S = self._remove_duplicate(copy.deepcopy(pre_S), R)
+            if (len(S) == len(pre_S)):
+                _, V = self._generic_tree_explorer(S, R)
+            else:
+                V = []
 
             if len(pre_S) == 0 and not self._check_external_assoc_edge(projected):
                 if not self._get_all_embedding(projected) in R:
