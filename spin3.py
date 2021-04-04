@@ -535,6 +535,7 @@ class SPIN(object):
 
     def _get_all_embedding(self, pdfs):
         return frozenset(map(lambda p: (p.gid, self._DFScode.represent(self.graphs[p.gid], p)), pdfs))
+        # return str(self._DFScode)
 
     def _generic_tree_explorer(self, C, R):
         if self._loop_count % 100 == 0:
@@ -554,11 +555,8 @@ class SPIN(object):
 
             pre_S = self._expand_1node(projected, prev_cand_edge)
 
-            S = self._remove_duplicate(copy.deepcopy(pre_S), R)
-            if (len(S) == len(pre_S)):
-                _, V = self._generic_tree_explorer(S, R)
-            else:
-                V = []
+            S = self._remove_duplicate(pre_S, R)
+            _, V = self._generic_tree_explorer(S, R)
 
             cannonical = self._get_all_embedding(projected)
 
@@ -579,11 +577,8 @@ class SPIN(object):
             self._DFScode.push_back(0, 1, vevlb)
             pre_S = self._expand_1node_start(projected)
 
-            S = self._remove_duplicate(copy.deepcopy(pre_S), R)
-            if (len(S) == len(pre_S)):
-                _, V = self._generic_tree_explorer(S, R)
-            else:
-                V = []
+            S = self._remove_duplicate(pre_S, R)
+            _, V = self._generic_tree_explorer(S, R)
 
             cannonical = self._get_all_embedding(projected)
 
