@@ -726,6 +726,7 @@ class SPIN(object):
     def mineMFG(self):
         self._read_graphs()
         C = self._generate_1edge_frequent_subgraphs()
+        print("Number of frequent edges: %d"%len(C))
         R = []
         M, S = self._generic_tree_explorer_start(C, R)
         # return self._frequent_subgraphs
