@@ -21,7 +21,7 @@ python run.py output_file_name memory_log_file_name
               [-h] [-s MIN_SUPPORT] [-n NUM_GRAPHS]
               [-l LOWER_BOUND_OF_NUM_VERTICES]
               [-u UPPER_BOUND_OF_NUM_VERTICES] [-d DIRECTED] [-v VERBOSE]
-              [-p PLOT] [-w WHERE]
+              [-p PLOT] [-w WHERE] [-o OPTIMIZE]
               database_file_name
 ```
 

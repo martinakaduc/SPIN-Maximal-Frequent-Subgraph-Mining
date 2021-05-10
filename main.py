@@ -32,7 +32,8 @@ def main(FLAGS=None):
         is_undirected=(not FLAGS.directed),
         verbose=FLAGS.verbose,
         visualize=FLAGS.plot,
-        where=FLAGS.where
+        where=FLAGS.where,
+        do_optimize=FLAGS.optimize
     )
 
     spin.mineMFG()

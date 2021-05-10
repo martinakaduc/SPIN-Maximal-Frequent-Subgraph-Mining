@@ -67,3 +67,9 @@ parser.add_argument(
     help='bool, output where one frequent subgraph appears in database, '
          'default off'
 )
+parser.add_argument(
+    '-o', '--optimize',
+    type=str2bool,
+    default=False,
+    help="Whether to enable optimization"
+)

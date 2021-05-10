@@ -214,7 +214,8 @@ class SPIN(object):
                  is_undirected=True,
                  verbose=False,
                  visualize=False,
-                 where=False):
+                 where=False,
+                 do_optimize=False):
         """Initialize gSpan instance."""
         self._database_file_name = database_file_name
         self.graphs = dict()
@@ -235,6 +236,7 @@ class SPIN(object):
         self._where = where
         self.timestamps = dict()
         self._loop_count = 0
+        self.do_optimize = do_optimize
         if self._max_num_vertices < self._min_num_vertices:
             print('Max number of vertices can not be smaller than '
                   'min number of that.\n'
@@ -537,7 +539,7 @@ class SPIN(object):
         return frozenset(map(lambda p: (p.gid, self._DFScode.represent(self.graphs[p.gid], p)), pdfs))
         # return str(self._DFScode)
 
-    def _generic_tree_explorer(self, C, R):
+    def _generic_tree_explorer_noop(self, C, R):
         if self._loop_count % 100 == 0:
             print("Loop count: %d\n" % self._loop_count)
         self._loop_count += 1
@@ -556,7 +558,65 @@ class SPIN(object):
             pre_S = self._expand_1node(projected, prev_cand_edge)
 
             S = self._remove_duplicate(pre_S, R)
-            _, V = self._generic_tree_explorer(S, R)
+            _, V = self._generic_tree_explorer_noop(S, R)
+
+            cannonical = self._get_all_embedding(projected)
+
+            if len(pre_S) == 0 and not self._check_external_assoc_edge(projected):
+                if not cannonical in R:
+                    self._maximal_expand(projected)
+
+            R = list(set(R + [cannonical] + V))
+
+            self._DFScode.pop()
+
+        return None, R
+
+    def _generic_tree_explorer_start_noop(self, C, R):
+        self._loop_count = 1
+
+        for vevlb, projected in C.items():
+            self._DFScode.push_back(0, 1, vevlb)
+            pre_S = self._expand_1node_start(projected)
+
+            S = self._remove_duplicate(pre_S, R)
+            _, V = self._generic_tree_explorer_noop(S, R)
+
+            cannonical = self._get_all_embedding(projected)
+
+            if len(pre_S) == 0 and not self._check_external_assoc_edge(projected):
+                if not cannonical in R:
+                    self._maximal_expand(projected)
+
+            R = list(set(R + [cannonical] + V))
+
+            self._DFScode.pop()
+
+        return None, R
+
+    def _generic_tree_explorer(self, C, R):
+        if self._loop_count % 100 == 0:
+            print("Loop count: %d\n" % self._loop_count)
+        self._loop_count += 1
+
+        maxtoc = self._DFScode[-1].to
+        for fevlb, projected in C.items():
+            # Check current DFS has cand fevlb
+            self._DFScode.push_back(
+                fevlb[0], maxtoc + 1,
+                (VACANT_VERTEX_LABEL, fevlb[1], fevlb[2])
+            )
+
+            prev_cand_edge = copy.deepcopy(C)
+            del prev_cand_edge[fevlb]
+
+            pre_S = self._expand_1node(projected, prev_cand_edge)
+
+            S = self._remove_duplicate(copy.deepcopy(pre_S), R)
+            if (len(S) == len(pre_S)):
+                _, V = self._generic_tree_explorer(S, R)
+            else:
+                V = []
 
             cannonical = self._get_all_embedding(projected)
 
@@ -577,8 +637,11 @@ class SPIN(object):
             self._DFScode.push_back(0, 1, vevlb)
             pre_S = self._expand_1node_start(projected)
 
-            S = self._remove_duplicate(pre_S, R)
-            _, V = self._generic_tree_explorer(S, R)
+            S = self._remove_duplicate(copy.deepcopy(pre_S), R)
+            if (len(S) == len(pre_S)):
+                _, V = self._generic_tree_explorer(S, R)
+            else:
+                V = []
 
             cannonical = self._get_all_embedding(projected)
 
@@ -640,37 +703,41 @@ class SPIN(object):
         return result
 
     def _maximal_expand(self, projected):
-        candidate_edges = collections.defaultdict(Projected)
-        for p in projected:
-            g = self.graphs[p.gid]
-            history = History(p, dfs_code=self._DFScode)
 
-            while True:
-                edges = self._get_internal_associative_edges(g, p.edge, history)
-                for e in edges:
-                    candidate_edges[
-                        (history.get_vertex_mapping(e.frm), e.elb, history.get_vertex_mapping(e.to))
-                    ].append(PDFS(g.gid, e, p))
+        self._support = len(projected)
+        self._report(projected)
 
-                if p.prev:
-                    p = p.prev
-                else:
-                    for to, e in g.vertices[p.edge.frm].edges.items():
-                        if e.is_freq and (not history.has_edge(e.eid)) and history.has_vertex(e.to):
-                            candidate_edges[
-                                (history.get_vertex_mapping(e.frm), e.elb, history.get_vertex_mapping(e.to))
-                            ].append(PDFS(g.gid, e, p))
-                    break
-
-        unfreq_edge = []
-        for e in candidate_edges:
-            if self._get_support(candidate_edges[e]) < self._min_support:
-                unfreq_edge.append(e)
-
-        for e in unfreq_edge:
-            del candidate_edges[e]
-
-        self._search_graph(candidate_edges, [p.gid for p in projected])
+    #     candidate_edges = collections.defaultdict(Projected)
+    #     for p in projected:
+    #         g = self.graphs[p.gid]
+    #         history = History(p, dfs_code=self._DFScode)
+    #
+    #         while True:
+    #             edges = self._get_internal_associative_edges(g, p.edge, history)
+    #             for e in edges:
+    #                 candidate_edges[
+    #                     (history.get_vertex_mapping(e.frm), e.elb, history.get_vertex_mapping(e.to))
+    #                 ].append(PDFS(g.gid, e, p))
+    #
+    #             if p.prev:
+    #                 p = p.prev
+    #             else:
+    #                 for to, e in g.vertices[p.edge.frm].edges.items():
+    #                     if e.is_freq and (not history.has_edge(e.eid)) and history.has_vertex(e.to):
+    #                         candidate_edges[
+    #                             (history.get_vertex_mapping(e.frm), e.elb, history.get_vertex_mapping(e.to))
+    #                         ].append(PDFS(g.gid, e, p))
+    #                 break
+    #
+    #     unfreq_edge = []
+    #     for e in candidate_edges:
+    #         if self._get_support(candidate_edges[e]) < self._min_support:
+    #             unfreq_edge.append(e)
+    #
+    #     for e in unfreq_edge:
+    #         del candidate_edges[e]
+    #
+    #     self._search_graph(candidate_edges, [p.gid for p in projected])
 
     def _search_graph(self, candidate_edges, prev_embedding):
         # Try 2 add all edges
@@ -728,5 +795,8 @@ class SPIN(object):
         C = self._generate_1edge_frequent_subgraphs()
         print("Number of frequent edges: %d"%len(C))
         R = []
-        M, S = self._generic_tree_explorer_start(C, R)
+        if self.do_optimize:
+            M, S = self._generic_tree_explorer_start(C, R)
+        else:
+            M, S = self._generic_tree_explorer_start_noop(C, R)
         # return self._frequent_subgraphs
