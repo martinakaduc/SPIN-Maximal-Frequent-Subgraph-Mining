@@ -9,7 +9,6 @@ import itertools
 import numpy as np
 import pandas as pd
 from functools import reduce
-from algorithm import encodeGraph
 import time
 
 from graph import Graph
