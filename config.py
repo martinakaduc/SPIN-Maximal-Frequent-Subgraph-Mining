@@ -67,3 +67,9 @@ parser.add_argument(
     help='bool, output where one frequent subgraph appears in database, '
          'default off'
 )
+parser.add_argument(
+    '-t', '--max_time',
+    type=int,
+    default=43200, # 12hrs
+    help='max time (second)'
+)

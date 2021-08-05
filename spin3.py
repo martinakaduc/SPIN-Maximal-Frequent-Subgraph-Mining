@@ -213,7 +213,8 @@ class SPIN(object):
                  is_undirected=True,
                  verbose=False,
                  visualize=False,
-                 where=False):
+                 where=False,
+                 max_time=86400):
         """Initialize gSpan instance."""
         self._database_file_name = database_file_name
         self.graphs = dict()
@@ -222,6 +223,7 @@ class SPIN(object):
         self._min_support = min_support
         self._min_num_vertices = min_num_vertices
         self._max_num_vertices = max_num_vertices
+        self._max_time = max_time
         self._DFScode = DFScode()
         self._support = 0
         self._frequent_size1_subgraphs = list()
@@ -240,6 +242,7 @@ class SPIN(object):
                   'Set max_num_vertices = min_num_vertices.')
             self._max_num_vertices = self._min_num_vertices
         self._report_df = pd.DataFrame()
+        self._start_time = time.time()
 
     def time_stats(self):
         """Print stats of time."""
@@ -541,6 +544,9 @@ class SPIN(object):
             print("Loop count: %d\n" % self._loop_count)
         self._loop_count += 1
 
+        if time.time() - self._start_time > self._max_time:
+            return None, R
+
         maxtoc = self._DFScode[-1].to
         for fevlb, projected in C.items():
             # Check current DFS has cand fevlb
@@ -567,6 +573,9 @@ class SPIN(object):
 
             self._DFScode.pop()
 
+            if time.time() - self._start_time > self._max_time:
+                return None, R
+
         return None, R
 
     def _generic_tree_explorer_start(self, C, R):
@@ -588,6 +597,9 @@ class SPIN(object):
             R = list(set(R + [cannonical] + V))
 
             self._DFScode.pop()
+
+            if time.time() - self._start_time > self._max_time:
+                return None, R
 
         return None, R
 
@@ -728,4 +740,5 @@ class SPIN(object):
         print("Number of frequent edges: %d"%len(C))
         R = []
         M, S = self._generic_tree_explorer_start(C, R)
+        print("Total explored:", self._loop_count)
         # return self._frequent_subgraphs
