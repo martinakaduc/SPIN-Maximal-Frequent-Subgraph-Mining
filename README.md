@@ -25,6 +25,11 @@ python run.py output_file_name memory_log_file_name
               database_file_name
 ```
 
+For example:
+```
+python run.py logs.txt mem.txt -s 100 -w 1 -o 1 data/ENZYMES_convert.txt
+```
+
 ### Get results and memory usage
 
 ```

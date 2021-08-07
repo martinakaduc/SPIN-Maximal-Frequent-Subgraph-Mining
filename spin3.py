@@ -799,4 +799,5 @@ class SPIN(object):
             M, S = self._generic_tree_explorer_start(C, R)
         else:
             M, S = self._generic_tree_explorer_start_noop(C, R)
+        print("Total explored:", self._loop_count)
         # return self._frequent_subgraphs
