@@ -70,6 +70,6 @@ parser.add_argument(
 parser.add_argument(
     '-t', '--max_time',
     type=int,
-    default=43200, # 12hrs
+    default=86400, # 12hrs
     help='max time (second)'
 )
