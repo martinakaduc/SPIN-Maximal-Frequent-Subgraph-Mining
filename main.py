@@ -32,7 +32,8 @@ def main(FLAGS=None):
         verbose=FLAGS.verbose,
         visualize=FLAGS.plot,
         where=FLAGS.where,
-        max_time=FLAGS.max_time
+        max_time=FLAGS.max_time,
+        do_optimize=FLAGS.optimize
     )
 
     spin.mineMFG()

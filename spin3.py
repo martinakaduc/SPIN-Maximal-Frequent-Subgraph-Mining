@@ -214,7 +214,8 @@ class SPIN(object):
                  verbose=False,
                  visualize=False,
                  where=False,
-                 max_time=86400):
+                 max_time=86400,
+                 do_optimize=False):
         """Initialize gSpan instance."""
         self._database_file_name = database_file_name
         self.graphs = dict()
@@ -236,6 +237,7 @@ class SPIN(object):
         self._where = where
         self.timestamps = dict()
         self._loop_count = 0
+        self.do_optimize = do_optimize
         if self._max_num_vertices < self._min_num_vertices:
             print('Max number of vertices can not be smaller than '
                   'min number of that.\n'
@@ -539,7 +541,7 @@ class SPIN(object):
         return frozenset(map(lambda p: (p.gid, self._DFScode.represent(self.graphs[p.gid], p)), pdfs))
         # return str(self._DFScode)
 
-    def _generic_tree_explorer(self, C, R):
+    def _generic_tree_explorer_noop(self, C, R):
         if self._loop_count % 100 == 0:
             print("Loop count: %d\n" % self._loop_count)
         self._loop_count += 1
@@ -561,7 +563,74 @@ class SPIN(object):
             pre_S = self._expand_1node(projected, prev_cand_edge)
 
             S = self._remove_duplicate(pre_S, R)
-            _, V = self._generic_tree_explorer(S, R)
+            _, V = self._generic_tree_explorer_noop(S, R)
+
+            cannonical = self._get_all_embedding(projected)
+
+            if len(pre_S) == 0 and not self._check_external_assoc_edge(projected):
+                if not cannonical in R:
+                    self._maximal_expand(projected)
+
+            R = list(set(R + [cannonical] + V))
+
+            self._DFScode.pop()
+
+            if time.time() - self._start_time > self._max_time:
+                return None, R
+
+        return None, R
+
+    def _generic_tree_explorer_start_noop(self, C, R):
+        self._loop_count = 1
+
+        for vevlb, projected in C.items():
+            self._DFScode.push_back(0, 1, vevlb)
+            pre_S = self._expand_1node_start(projected)
+
+            S = self._remove_duplicate(pre_S, R)
+            _, V = self._generic_tree_explorer_noop(S, R)
+
+            cannonical = self._get_all_embedding(projected)
+
+            if len(pre_S) == 0 and not self._check_external_assoc_edge(projected):
+                if not cannonical in R:
+                    self._maximal_expand(projected)
+
+            R = list(set(R + [cannonical] + V))
+
+            self._DFScode.pop()
+
+            if time.time() - self._start_time > self._max_time:
+                return None, R
+
+        return None, R
+
+    def _generic_tree_explorer(self, C, R):
+        if self._loop_count % 100 == 0:
+            print("Loop count: %d\n" % self._loop_count)
+        self._loop_count += 1
+
+        if time.time() - self._start_time > self._max_time:
+            return None, R
+
+        maxtoc = self._DFScode[-1].to
+        for fevlb, projected in C.items():
+            # Check current DFS has cand fevlb
+            self._DFScode.push_back(
+                fevlb[0], maxtoc + 1,
+                (VACANT_VERTEX_LABEL, fevlb[1], fevlb[2])
+            )
+
+            prev_cand_edge = copy.deepcopy(C)
+            del prev_cand_edge[fevlb]
+
+            pre_S = self._expand_1node(projected, prev_cand_edge)
+
+            S = self._remove_duplicate(copy.deepcopy(pre_S), R)
+            if (len(S) == len(pre_S)):
+                _, V = self._generic_tree_explorer(S, R)
+            else:
+                V = []
 
             cannonical = self._get_all_embedding(projected)
 
@@ -585,8 +654,11 @@ class SPIN(object):
             self._DFScode.push_back(0, 1, vevlb)
             pre_S = self._expand_1node_start(projected)
 
-            S = self._remove_duplicate(pre_S, R)
-            _, V = self._generic_tree_explorer(S, R)
+            S = self._remove_duplicate(copy.deepcopy(pre_S), R)
+            if (len(S) == len(pre_S)):
+                _, V = self._generic_tree_explorer(S, R)
+            else:
+                V = []
 
             cannonical = self._get_all_embedding(projected)
 
@@ -739,6 +811,9 @@ class SPIN(object):
         C = self._generate_1edge_frequent_subgraphs()
         print("Number of frequent edges: %d"%len(C))
         R = []
-        M, S = self._generic_tree_explorer_start(C, R)
+        if self.do_optimize:
+            M, S = self._generic_tree_explorer_start(C, R)
+        else:
+            M, S = self._generic_tree_explorer_start_noop(C, R)
         print("Total explored:", self._loop_count)
         # return self._frequent_subgraphs

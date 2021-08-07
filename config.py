@@ -73,3 +73,9 @@ parser.add_argument(
     default=86400, # 12hrs
     help='max time (second)'
 )
+parser.add_argument(
+    '-o', '--optimize',
+    type=str2bool,
+    default=False,
+    help="Whether to enable optimization"
+)
