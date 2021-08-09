@@ -704,7 +704,7 @@ class SPIN(object):
 
     def _maximal_expand(self, projected):
 
-        self._support = len(projected)
+        self._support = len(set([p.gid for p in projected]))
         self._report(projected)
 
     #     candidate_edges = collections.defaultdict(Projected)
