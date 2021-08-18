@@ -583,6 +583,9 @@ class SPIN(object):
     def _generic_tree_explorer_start_noop(self, C, R):
         self._loop_count = 1
 
+        if time.time() - self._start_time > self._max_time:
+            return None, R
+
         for vevlb, projected in C.items():
             self._DFScode.push_back(0, 1, vevlb)
             pre_S = self._expand_1node_start(projected)
@@ -649,6 +652,9 @@ class SPIN(object):
 
     def _generic_tree_explorer_start(self, C, R):
         self._loop_count = 1
+
+        if time.time() - self._start_time > self._max_time:
+            return None, R
 
         for vevlb, projected in C.items():
             self._DFScode.push_back(0, 1, vevlb)
