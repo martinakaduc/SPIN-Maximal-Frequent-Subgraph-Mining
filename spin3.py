@@ -262,14 +262,19 @@ class SPIN(object):
     @record_timestamp
     def _read_graphs(self):
         self.graphs = dict()
+        max_size = 0
         with open(self._database_file_name, 'r', encoding='utf-8') as f:
             lines = [line.strip() for line in f.readlines()]
             tgraph, graph_cnt = None, 0
+            graph_size = 0
             for i, line in enumerate(lines):
                 cols = line.split(' ')
                 if cols[0] == 't':
                     if tgraph is not None:
                         self.graphs[graph_cnt] = tgraph
+                        if max_size < graph_size:
+                            max_size = graph_size
+                        graph_size = 0
                         graph_cnt += 1
                         tgraph = None
                     if cols[-1] == '-1' or graph_cnt >= self._max_ngraphs:
@@ -279,11 +284,16 @@ class SPIN(object):
                                    eid_auto_increment=True)
                 elif cols[0] == 'v':
                     tgraph.add_vertex(cols[1], cols[2])
+                    graph_size += 1
                 elif cols[0] == 'e':
                     tgraph.add_edge(AUTO_EDGE_ID, cols[1], cols[2], cols[3])
             # adapt to input files that do not end with 't # -1'
             if tgraph is not None:
                 self.graphs[graph_cnt] = tgraph
+                if max_size < graph_size:
+                    max_size = graph_size
+        if self._max_num_vertices > max_size:
+            self._max_num_vertices = max_size
         return self
 
     def _generate_1edge_frequent_subgraphs(self):
