@@ -633,6 +633,7 @@ class SPIN(object):
 
             S = self._remove_duplicate(copy.deepcopy(pre_S), R)
             if (len(S) == len(pre_S)):
+                self._remove_equal_support(projected, S)
                 U, V = self._generic_tree_explorer(S, R)
             else:
                 U = []
@@ -640,11 +641,12 @@ class SPIN(object):
 
             cannonical = self._get_all_embedding(projected)
 
-            if len(pre_S) == 0 and not self._check_external_assoc_edge(projected):
+            if len(pre_S) == 0 or len(S) == 0:
                 if not cannonical in R:
+                    is_max = self._check_external_assoc_edge(projected)
                     me = self._maximal_expand(projected)
                     if len(me) > 0:
-                        Q.append(me)
+                        Q.append((is_max, me))
 
             Q += U
             R = list(set(R + [cannonical] + V))
@@ -669,11 +671,12 @@ class SPIN(object):
 
             cannonical = self._get_all_embedding(projected)
 
-            if len(pre_S) == 0 and not self._check_external_assoc_edge(projected):
+            if len(pre_S) == 0 or len(S) == 0:
                 if not cannonical in R:
+                    is_max = self._check_external_assoc_edge(projected)
                     me = self._maximal_expand(projected)
                     if len(me) > 0:
-                        Q.append(me)
+                        Q.append((is_max, me))
 
             Q += U
             R = list(set(R + [cannonical] + V))
@@ -681,6 +684,19 @@ class SPIN(object):
             self._DFScode.pop()
 
         return Q, R
+
+    def _remove_equal_support(self, p_projected, list_cand):
+        if len(self._DFScode) < self._min_num_vertices:
+            return
+
+        self._support = self._get_support(p_projected)
+        tobe_removed = []
+        for fevlb, projected in list_cand.items():
+            if self._support == self._get_support(projected):
+                tobe_removed.append(fevlb)
+
+        for x in tobe_removed:
+            del list_cand[x]
 
     def _get_external_associative_edges(self, g, rm_edge, history):
         result = []
