@@ -250,6 +250,7 @@ class SPIN(object):
         time_deltas = collections.defaultdict(float)
         for fn in func_names:
             time_deltas[fn] = self.timestamps[fn + '_out'] - self.timestamps[fn + '_in']
+            print(self.timestamps)
 
         print("Read:\t%.5f s" % time_deltas['_read_graphs'])
         print("Mine:\t%.5f s" % (time_deltas['mineMFG'] - time_deltas['_read_graphs']))
@@ -257,7 +258,7 @@ class SPIN(object):
 
         return self
 
-    @record_timestamp
+    # @record_timestamp
     def _read_graphs(self):
         self.graphs = dict()
         max_size = 0
@@ -555,6 +556,7 @@ class SPIN(object):
         self._loop_count += 1
 
         maxtoc = self._DFScode[-1].to
+        Q = []
         for fevlb, projected in C.items():
             # Check current DFS has cand fevlb
             self._DFScode.push_back(
@@ -568,41 +570,47 @@ class SPIN(object):
             pre_S = self._expand_1node(projected, prev_cand_edge)
 
             S = self._remove_duplicate(pre_S, R)
-            _, V = self._generic_tree_explorer_noop(S, R)
+            U, V = self._generic_tree_explorer_noop(S, R)
 
             cannonical = self._get_all_embedding(projected)
 
             if len(pre_S) == 0 and not self._check_external_assoc_edge(projected):
                 if not cannonical in R:
-                    self._maximal_expand(projected)
+                    me = self._maximal_expand(projected)
+                    if len(me) > 0:
+                        Q.append(me)
 
+            Q += U
             R = list(set(R + [cannonical] + V))
 
             self._DFScode.pop()
 
-        return None, R
+        return Q, R
 
     def _generic_tree_explorer_start_noop(self, C, R):
         self._loop_count = 1
-
+        Q = []
         for vevlb, projected in C.items():
             self._DFScode.push_back(0, 1, vevlb)
             pre_S = self._expand_1node_start(projected)
 
             S = self._remove_duplicate(pre_S, R)
-            _, V = self._generic_tree_explorer_noop(S, R)
+            U, V = self._generic_tree_explorer_noop(S, R)
 
             cannonical = self._get_all_embedding(projected)
 
             if len(pre_S) == 0 and not self._check_external_assoc_edge(projected):
                 if not cannonical in R:
-                    self._maximal_expand(projected)
+                    me = self._maximal_expand(projected)
+                    if len(me) > 0:
+                        Q.append(me)
 
+            Q += U
             R = list(set(R + [cannonical] + V))
 
             self._DFScode.pop()
 
-        return None, R
+        return Q, R
 
     def _generic_tree_explorer(self, C, R):
         if self._loop_count % 100 == 0:
@@ -610,6 +618,7 @@ class SPIN(object):
         self._loop_count += 1
 
         maxtoc = self._DFScode[-1].to
+        Q = []
         for fevlb, projected in C.items():
             # Check current DFS has cand fevlb
             self._DFScode.push_back(
@@ -624,46 +633,54 @@ class SPIN(object):
 
             S = self._remove_duplicate(copy.deepcopy(pre_S), R)
             if (len(S) == len(pre_S)):
-                _, V = self._generic_tree_explorer(S, R)
+                U, V = self._generic_tree_explorer(S, R)
             else:
+                U = []
                 V = []
 
             cannonical = self._get_all_embedding(projected)
 
             if len(pre_S) == 0 and not self._check_external_assoc_edge(projected):
                 if not cannonical in R:
-                    self._maximal_expand(projected)
+                    me = self._maximal_expand(projected)
+                    if len(me) > 0:
+                        Q.append(me)
 
+            Q += U
             R = list(set(R + [cannonical] + V))
 
             self._DFScode.pop()
 
-        return None, R
+        return Q, R
 
     def _generic_tree_explorer_start(self, C, R):
         self._loop_count = 1
-
+        Q = []
         for vevlb, projected in C.items():
             self._DFScode.push_back(0, 1, vevlb)
             pre_S = self._expand_1node_start(projected)
 
             S = self._remove_duplicate(copy.deepcopy(pre_S), R)
             if (len(S) == len(pre_S)):
-                _, V = self._generic_tree_explorer(S, R)
+                U, V = self._generic_tree_explorer(S, R)
             else:
+                U = []
                 V = []
 
             cannonical = self._get_all_embedding(projected)
 
             if len(pre_S) == 0 and not self._check_external_assoc_edge(projected):
                 if not cannonical in R:
-                    self._maximal_expand(projected)
+                    me = self._maximal_expand(projected)
+                    if len(me) > 0:
+                        Q.append(me)
 
+            Q += U
             R = list(set(R + [cannonical] + V))
 
             self._DFScode.pop()
 
-        return None, R
+        return Q, R
 
     def _get_external_associative_edges(self, g, rm_edge, history):
         result = []
@@ -716,6 +733,18 @@ class SPIN(object):
 
         self._support = len(set([p.gid for p in projected]))
         self._report(projected)
+
+        list_embedding = {}
+        for p in projected:
+            g = self.graphs[p.gid]
+            history = History(p, dfs_code=self._DFScode)
+
+            if p.gid not in list_embedding:
+                list_embedding[p.gid] = []
+
+            list_embedding[p.gid].append(dict(history.vertices_used))
+
+        return list_embedding
 
     #     candidate_edges = collections.defaultdict(Projected)
     #     for p in projected:
@@ -799,9 +828,12 @@ class SPIN(object):
             self._search_graph(new_candidate_edges, current_embeding)
             self._DFScode.pop()
 
-    @record_timestamp
+    # @record_timestamp
     def mineMFG(self):
+        start_time = time.time()
         self._read_graphs()
+        read_time = time.time()
+
         C = self._generate_1edge_frequent_subgraphs()
         print("Number of frequent edges: %d"%len(C))
         R = []
@@ -809,5 +841,12 @@ class SPIN(object):
             M, S = self._generic_tree_explorer_start(C, R)
         else:
             M, S = self._generic_tree_explorer_start_noop(C, R)
+
+        end_time = time.time()
+
         print("Total explored:", self._loop_count)
-        # return self._frequent_subgraphs
+        print("Read:\t%.5f s" % (read_time - start_time))
+        print("Mine:\t%.5f s" % (end_time - read_time))
+        print("Total:\t%.5f s" % (end_time - start_time))
+
+        return self._frequent_subgraphs, M
