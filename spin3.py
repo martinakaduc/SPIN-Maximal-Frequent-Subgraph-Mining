@@ -758,7 +758,8 @@ class SPIN(object):
             if p.gid not in list_embedding:
                 list_embedding[p.gid] = []
 
-            list_embedding[p.gid].append(dict(history.vertices_used))
+            revert_dict_mapping = {v:int(k) for k, v in dict(history.vertices_used).items()}
+            list_embedding[p.gid].append(revert_dict_mapping)
 
         return list_embedding
 
