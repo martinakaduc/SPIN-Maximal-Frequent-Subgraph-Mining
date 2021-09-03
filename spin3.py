@@ -880,6 +880,8 @@ class SPIN(object):
         end_time = time.time()
 
         print("Total explored:", self._loop_count)
+        print("Expandable trees:", len(self._frequent_trees))
+
         print("Read:\t%.5f s" % (read_time - start_time))
         print("Mine:\t%.5f s" % (end_time - read_time))
         print("Total:\t%.5f s" % (end_time - start_time))
