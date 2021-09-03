@@ -230,6 +230,7 @@ class SPIN(object):
         # Include subgraphs with
         # any num(but >= 2, <= max_num_vertices) of vertices.
         self._frequent_subgraphs = list()
+        self._frequent_trees = list()
         self._counter = itertools.count()
         self._verbose = verbose
         self._visualize = visualize
@@ -360,7 +361,8 @@ class SPIN(object):
     def _report(self, projected):
         self._frequent_subgraphs.append(copy.copy(self._DFScode))
         if self._DFScode.get_num_vertices() < self._min_num_vertices:
-            return
+            return False
+
         g = self._DFScode.to_graph(gid=next(self._counter),
                                    is_undirected=self._is_undirected)
         display_str = g.display()
@@ -383,6 +385,7 @@ class SPIN(object):
         if self._where:
             print('where: {}'.format(list(set([p.gid for p in projected]))))
         print('\n-----------------\n')
+        return True
 
     def _expand_1node_start(self, projected):
         # self._support = self._get_support(projected)
@@ -490,33 +493,29 @@ class SPIN(object):
                     unfreq_edge.append((frm, elb, vlb2))
                     continue
                 else:
-                    duplicate_pdfs = []
                     duplicate_pdfs_idx = []
                     for i, pdfs in enumerate(new_embedding):
                         for history in list_history[pdfs.gid]:
-                            if history.has_vertex(pdfs.edge.frm):
-                                if history.has_vertex(pdfs.edge.to):
-                                    duplicate_pdfs.append(pdfs)
-                                    duplicate_pdfs_idx.append(i)
-                                else:
-                                    new_embedding[i].prev = history.pdfs
-                                break
+                            if history.has_vertex(pdfs.edge.to):
+                                duplicate_pdfs_idx.append(i)
+                            else:
+                                new_embedding[i].prev = history.pdfs
+                            break
 
-                    if support - self._get_support(duplicate_pdfs) < self._min_support:
+                    for idx in sorted(duplicate_pdfs_idx, reverse=True):
+                        del new_embedding[idx]
+
+                    support = self._get_support(new_embedding)
+                    if support < self._min_support:
                         unfreq_edge.append((frm, elb, vlb2))
                         continue
-                    else:
-                        for idx in sorted(duplicate_pdfs_idx, reverse=True):
-                            del new_embedding[idx]
 
                 prev_cand_edge[(frm, elb, vlb2)] = new_embedding
 
             for e in unfreq_edge:
                 del prev_cand_edge[e]
 
-            for frm, elb, vlb2 in forward_root:
-                prev_cand_edge[(frm, elb, vlb2)] = forward_root[(frm, elb, vlb2)]
-
+            prev_cand_edge.update(forward_root)
             return prev_cand_edge
 
         else:
@@ -534,8 +533,7 @@ class SPIN(object):
 
             cannonical = self._get_all_embedding(pre_S[(frm, elb, vlb2)])
             for r in R:
-                intersect = cannonical & r
-                if len(intersect) >= self._min_support:
+                if len(cannonical & r) >= self._min_support:
                     duplicate.append((frm, elb, vlb2))
                     break
 
@@ -574,11 +572,15 @@ class SPIN(object):
 
             cannonical = self._get_all_embedding(projected)
 
-            if len(pre_S) == 0 and not self._check_external_assoc_edge(projected):
-                if not cannonical in R:
-                    me = self._maximal_expand(projected)
-                    if len(me) > 0:
-                        Q.append(me)
+            if len(pre_S) == 0:
+                if cannonical not in R:
+                    is_max = not self._check_external_assoc_edge(projected)
+                    if is_max:
+                        self._maximal_expand(projected)
+                    else:
+                        me = self._report_maxtree(projected)
+                        if len(me) > 0:
+                            Q.append(me)
 
             Q += U
             R = list(set(R + [cannonical] + V))
@@ -599,11 +601,15 @@ class SPIN(object):
 
             cannonical = self._get_all_embedding(projected)
 
-            if len(pre_S) == 0 and not self._check_external_assoc_edge(projected):
-                if not cannonical in R:
-                    me = self._maximal_expand(projected)
-                    if len(me) > 0:
-                        Q.append(me)
+            if len(pre_S) == 0:
+                if cannonical not in R:
+                    is_max = not self._check_external_assoc_edge(projected)
+                    if is_max:
+                        self._maximal_expand(projected)
+                    else:
+                        me = self._report_maxtree(projected)
+                        if len(me) > 0:
+                            Q.append(me)
 
             Q += U
             R = list(set(R + [cannonical] + V))
@@ -641,12 +647,15 @@ class SPIN(object):
 
             cannonical = self._get_all_embedding(projected)
 
-            if len(pre_S) == 0 or len(S) == 0:
-                if not cannonical in R:
-                    is_max = self._check_external_assoc_edge(projected)
-                    me = self._maximal_expand(projected)
-                    if len(me) > 0:
-                        Q.append((is_max, me))
+            if len(pre_S) == 0:
+                if cannonical not in R:
+                    is_max = not self._check_external_assoc_edge(projected)
+                    if is_max:
+                        self._maximal_expand(projected)
+                    else:
+                        me = self._report_maxtree(projected)
+                        if len(me) > 0:
+                            Q.append(me)
 
             Q += U
             R = list(set(R + [cannonical] + V))
@@ -671,12 +680,15 @@ class SPIN(object):
 
             cannonical = self._get_all_embedding(projected)
 
-            if len(pre_S) == 0 or len(S) == 0:
-                if not cannonical in R:
-                    is_max = self._check_external_assoc_edge(projected)
-                    me = self._maximal_expand(projected)
-                    if len(me) > 0:
-                        Q.append((is_max, me))
+            if len(pre_S) == 0:
+                if cannonical not in R:
+                    is_max = not self._check_external_assoc_edge(projected)
+                    if is_max:
+                        self._maximal_expand(projected)
+                    else:
+                        me = self._report_maxtree(projected)
+                        if len(me) > 0:
+                            Q.append(me)
 
             Q += U
             R = list(set(R + [cannonical] + V))
@@ -689,10 +701,10 @@ class SPIN(object):
         if len(self._DFScode) < self._min_num_vertices:
             return
 
-        self._support = self._get_support(p_projected)
+        self._support = len(p_projected)
         tobe_removed = []
         for fevlb, projected in list_cand.items():
-            if self._support == self._get_support(projected):
+            if self._support == len(projected):
                 tobe_removed.append(fevlb)
 
         for x in tobe_removed:
@@ -706,6 +718,7 @@ class SPIN(object):
         return result
 
     def _check_external_assoc_edge(self, projected):
+        projected_gid = set([pdfs.gid for pdfs in projected])
         external_assoc_edges = collections.defaultdict(Projected)
         maxtoc = self._DFScode[-1].to
 
@@ -733,7 +746,8 @@ class SPIN(object):
                     break
 
         for e in external_assoc_edges:
-            if self._get_support(external_assoc_edges[e]) >= self._min_support:
+            eae_gid = set([pdfs.gid for pdfs in external_assoc_edges[e]])
+            if len(projected_gid & eae_gid) >= self._min_support:
                 return True
 
         return False
@@ -745,12 +759,15 @@ class SPIN(object):
                 result.append(e)
         return result
 
-    def _maximal_expand(self, projected):
-
-        self._support = len(set([p.gid for p in projected]))
-        self._report(projected)
-
+    def _report_maxtree(self, projected):
+        self._support = self._get_support(projected)
         list_embedding = {}
+
+        if self._DFScode.get_num_vertices() < self._min_num_vertices:
+            return list_embedding
+
+        self._frequent_trees.append(copy.copy(self._DFScode))
+
         for p in projected:
             g = self.graphs[p.gid]
             history = History(p, dfs_code=self._DFScode)
@@ -763,37 +780,38 @@ class SPIN(object):
 
         return list_embedding
 
-    #     candidate_edges = collections.defaultdict(Projected)
-    #     for p in projected:
-    #         g = self.graphs[p.gid]
-    #         history = History(p, dfs_code=self._DFScode)
-    #
-    #         while True:
-    #             edges = self._get_internal_associative_edges(g, p.edge, history)
-    #             for e in edges:
-    #                 candidate_edges[
-    #                     (history.get_vertex_mapping(e.frm), e.elb, history.get_vertex_mapping(e.to))
-    #                 ].append(PDFS(g.gid, e, p))
-    #
-    #             if p.prev:
-    #                 p = p.prev
-    #             else:
-    #                 for to, e in g.vertices[p.edge.frm].edges.items():
-    #                     if e.is_freq and (not history.has_edge(e.eid)) and history.has_vertex(e.to):
-    #                         candidate_edges[
-    #                             (history.get_vertex_mapping(e.frm), e.elb, history.get_vertex_mapping(e.to))
-    #                         ].append(PDFS(g.gid, e, p))
-    #                 break
-    #
-    #     unfreq_edge = []
-    #     for e in candidate_edges:
-    #         if self._get_support(candidate_edges[e]) < self._min_support:
-    #             unfreq_edge.append(e)
-    #
-    #     for e in unfreq_edge:
-    #         del candidate_edges[e]
-    #
-    #     self._search_graph(candidate_edges, [p.gid for p in projected])
+    def _maximal_expand(self, projected):
+        candidate_edges = collections.defaultdict(Projected)
+        for p in projected:
+            g = self.graphs[p.gid]
+            history = History(p, dfs_code=self._DFScode)
+
+            while True:
+                edges = self._get_internal_associative_edges(g, p.edge, history)
+                for e in edges:
+                    candidate_edges[
+                        (history.get_vertex_mapping(e.frm), e.elb, history.get_vertex_mapping(e.to))
+                    ].append(PDFS(g.gid, e, p))
+
+                if p.prev:
+                    p = p.prev
+                else:
+                    for to, e in g.vertices[p.edge.frm].edges.items():
+                        if e.is_freq and (not history.has_edge(e.eid)) and history.has_vertex(e.to):
+                            candidate_edges[
+                                (history.get_vertex_mapping(e.frm), e.elb, history.get_vertex_mapping(e.to))
+                            ].append(PDFS(g.gid, e, p))
+                    break
+
+        unfreq_edge = []
+        for e in candidate_edges:
+            if self._get_support(candidate_edges[e]) < self._min_support:
+                unfreq_edge.append(e)
+
+        for e in unfreq_edge:
+            del candidate_edges[e]
+
+        self._search_graph(candidate_edges, [p.gid for p in projected])
 
     def _search_graph(self, candidate_edges, prev_embedding):
         # Try 2 add all edges
@@ -866,4 +884,4 @@ class SPIN(object):
         print("Mine:\t%.5f s" % (end_time - read_time))
         print("Total:\t%.5f s" % (end_time - start_time))
 
-        return self._frequent_subgraphs, M
+        return self._frequent_trees, M
